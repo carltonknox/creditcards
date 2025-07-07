@@ -124,7 +124,9 @@ amex_gold = CreditCard(
     monthly_caps={
         "groceries": 25000/12  # $25k/year cap for supermarkets
     },
-    cpp=1.5,                     # 1.25 cents per point assumed
+    # cpp=0.6,                     # 0.6 cpp ~ worst case statement credit
+    cpp=1.0,                     # 1.0 cpp ~ normal amex travel portal
+    # cpp=1.5,                     # 1.5 cpp ~ OPTIMIZED travel transfer points
     base_rate=0.01,               # 1% elsewhere
     fee=(325 - (120+120))/12            
 )
