@@ -1,5 +1,18 @@
 from credit_card import CreditCard
 #Analysis
+def best_flat_card(card_list,amount,category):
+    best_reward=0
+    best_used=0
+    best_card=None
+    for card in card_list:
+        reward, used = card.calc_flat(amount,category)
+        assert(used==amount)
+        if reward>best_reward:
+            best_reward=reward
+            best_used=used
+            best_card=card
+    assert(best_card is not None)
+    return best_card, best_reward, best_used
 def analyze_credit_cards(all_cards,monthly_spending):
     money_spent= {cat:0 for cat in monthly_spending.keys()}
     total_time = {cat:0 for cat in monthly_spending.keys()}
@@ -9,34 +22,59 @@ def analyze_credit_cards(all_cards,monthly_spending):
     for category,amount in monthly_spending.items():
         # print(category,amount)
         for card in all_cards:
-            reward,used,chance=card.calc_rot(amount,category)
-            if(reward):
-                if category not in rotcats:
-                    rotcats[category]=[]
-                rotcats[category].append((card.name,reward,used,chance))
+            reward,used,chance=card.calc_rot(amount-money_spent[category],category)
+            #CHECK: If flat card is better then dont use this rotating category
+            cur_amount=amount
+            while(reward):
+            
+                best_card,best_reward,best_used=best_flat_card(all_cards,used,category)
+                
+                if best_reward > reward:
+                    
+                    # best_card,best_reward,best_used=best_flat_card(all_cards,monthly_spending[cat]-money_spent[cat],cat)
+                
+                    best_card.use_flat(best_used,category)
+                    total_rewards[category]["portions"].append({"reward":best_reward, "portion":best_used, "time":1.0,"ratios":[1.0],"cards":[best_card.name]})
+                    total_rewards[category]["cards"].append(best_card.name)
+                    
+                    money_spent[category]+=best_used
+                    total_time[category]=1.0
+                    
+                    cur_amount=max(0,used-best_used)
+                else:
+                    if category not in rotcats:
+                        rotcats[category]={"cards":[],"portions":[]}
+                    rotcats[category]["cards"].append((card.name))
+                    rotcats[category]["portions"].append({"reward":reward, "portion":used, "time":chance,"ratios":[chance],"cards":[card.name]})
+                    cur_amount=0
+                reward,used,chance=card.calc_rot(cur_amount,category)
+                
     # print("Rotating Categories:", rotcats)
-    rotcats_merged={}
-    for cat,cards in rotcats.items():
+    for cat in rotcats.keys():
+        #mergeportions
         card_names=[]
-        reward=cards[0][1]
-        used=cards[0][2]
+        reward=rotcats[cat]["portions"][0]["reward"]
+        used=rotcats[cat]["portions"][0]["portion"]
+        
+        
+        
+        
         
         inv_prob=1
         ratios=[]
-        for card in cards:
-            assert(card[1]==reward)
-            assert(card[2]==used)
-            inv_prob*=(1-card[3])
-            card_names.append(card[0])
-            ratios.append(card[3])
+        for p in rotcats[cat]["portions"]:
+            if not (p["reward"]==reward and p["portion"]==used):
+                print("ERROR: does not support rotating categories with mismatched limits/reward rate.")
+                exit(1)
+            inv_prob*=(1-p["time"])
+            card_names+=p["cards"]
+            ratios+=p["ratios"]
         merged_prob=1-inv_prob
-        rotcats_merged[cat]=((card_names,reward,used,merged_prob,ratios))
         total_time[cat]+=merged_prob
-        total_rewards[cat]["cards"]=card_names.copy()
-        total_rewards[cat]["portions"].append({"reward":reward, "portion":used, "time":merged_prob,"ratios":ratios,"cards":card_names})
+        total_rewards[cat]["cards"]+=card_names
+        total_rewards[cat]["portions"].append({"reward":reward, "portion":used, "time":merged_prob,"ratios":ratios,"cards":card_names.copy()})
         
-        
-    # print("Merged Rotating Categories:", rotcats_merged)
+    # print("Merged Rotating Categories:", total_rewards)
     #Then assign custom cards
     for card in all_cards:
         while(card.custom_i < len(card.custom_rates)):
@@ -49,43 +87,63 @@ def analyze_credit_cards(all_cards,monthly_spending):
             for category,amount in monthly_spending.items():
                 already_used=money_spent.get(category,0)
                 reward, used = card.calc_custom(amount-already_used,category)
-                # if reward > best_reward:
-                #     best_reward=reward
-                #     best_cat=category
                 if reward>0:
-                    custom_list.append((category,reward))
-            
+                    custom_list.append((category,reward,used))
             custom_list=sorted(custom_list, key=lambda x: x[1], reverse=True)
             # print(custom_list)
                 
             i=0
             while(card.time<1 and i < len(custom_list)):
-                best_cat,best_reward= custom_list[i]
+                best_cat,best_reward,used= custom_list[i]
                 already_used=money_spent.get(best_cat,0)
                 
-                best_time=1
-                if best_cat in rotcats_merged and total_time[best_cat] <1.0:
-                    best_time=min(1-total_time[best_cat],1-card.time)
+                best_card,best_flat_reward,best_used=best_flat_card(all_cards,used,best_cat)
+                
+                if best_flat_reward > best_reward:
                     
+                    # best_card,best_flat_reward,best_used=best_flat_card(all_cards,monthly_spending[cat]-money_spent[cat],cat)
+                
+                    best_card.use_flat(best_used,best_cat)
+                    total_rewards[best_cat]["portions"].append({"reward":best_flat_reward, "portion":best_used, "time":1.0,"ratios":[1.0],"cards":[best_card.name]})
+                    total_rewards[best_cat]["cards"].append(best_card.name)
+                    
+                    money_spent[best_cat]+=best_used
+                    total_time[best_cat]=1.0
+                    
+                    already_used=money_spent.get(best_cat,0)
+                    reward, used = card.calc_custom(amount-already_used,best_cat)
+                    if reward>0:
+                        custom_list[i]=(best_cat,reward,used)
+                        custom_list[i:] = sorted(custom_list[i:], key=lambda x: x[1], reverse=True)
+                    else:
+                        i+=1
+                    
+                else:
                 
                 
-                reward, used = card.use_custom(monthly_spending[best_cat]-already_used,best_cat)
-                money_spent[best_cat]=already_used+used
-                card.time+=best_time
-                # print(card.name,best_cat,best_reward,used,best_time)
+                    best_time=1
+                    if len(total_rewards[best_cat]["portions"])>0 and total_time[best_cat] <1.0:
+                        best_time=min(1-total_time[best_cat],1-card.time)
+                        
+                    
+                    
+                    reward, used = card.use_custom(monthly_spending[best_cat]-already_used,best_cat)
+                    money_spent[best_cat]=already_used+used
+                    card.time+=best_time
+                    # print(card.name,best_cat,best_reward,used,best_time)
+                    
+                    if total_time[best_cat]<1 and len(total_rewards[best_cat]["portions"])>0:
+                        #continue portion from rotating category
+                        prev_portion=total_rewards[best_cat]["portions"][-1]
+                        prev_portion_amount=prev_portion["portion"]
+                        assert(used==prev_portion_amount)
+                    total_rewards[best_cat]["portions"].append({"reward":best_reward, "portion":used, "time":best_time,"ratios":[best_time],"cards":[card.name]})
+                    total_rewards[best_cat]["cards"].append(card.name)
+                    total_time[best_cat]+=best_time
                 
-                if total_time[best_cat]<1 and len(total_rewards[best_cat]["portions"])>0:
-                    #continue portion from rotating category
-                    prev_portion=total_rewards[best_cat]["portions"][-1]
-                    prev_portion_amount=prev_portion["portion"]
-                    assert(used==prev_portion_amount)
-                total_rewards[best_cat]["portions"].append({"reward":best_reward, "portion":used, "time":best_time,"ratios":[best_time],"cards":[card.name]})
-                total_rewards[best_cat]["cards"].append(card.name)
-                total_time[best_cat]+=best_time
                 
                 
-                
-                i+=1
+                    i+=1
             card.custom_i+=1
             
     # print(total_time)
@@ -103,18 +161,8 @@ def analyze_credit_cards(all_cards,monthly_spending):
                 prev_portion_amount=prev_portion["portion"]
                 prev_portion_remaining_time=1-total_time[cat]
                 
-                
-                best_reward=0
-                best_used=0
-                best_card=None
-                for card in all_cards:
-                    reward, used = card.calc_flat(prev_portion_amount,cat)
-                    assert(used==prev_portion_amount)
-                    if reward>best_reward:
-                        best_reward=reward
-                        best_used=used
-                        best_card=card
-                assert(best_card is not None)
+                best_card,best_reward,best_used=best_flat_card(all_cards,prev_portion_amount,cat)
+                assert(best_used==prev_portion_amount)
                 best_card.use_flat(best_used,cat)
                     
                     
@@ -125,16 +173,9 @@ def analyze_credit_cards(all_cards,monthly_spending):
             #should be filled out now
             if money_spent[cat] < monthly_spending[cat]:
                 #Need to fill out rest of money with flat rate
-                best_reward=0
-                best_used=0
-                best_card=None
-                for card in all_cards:
-                    reward, used = card.calc_flat(monthly_spending[cat]-money_spent[cat],cat)
-                    if reward>best_reward:
-                        best_reward=reward
-                        best_used=used
-                        best_card=card
-                assert(best_card is not None)
+                
+                best_card,best_reward,best_used=best_flat_card(all_cards,monthly_spending[cat]-money_spent[cat],cat)
+                
                 best_card.use_flat(best_used,cat)
                 total_rewards[cat]["portions"].append({"reward":best_reward, "portion":best_used, "time":1.0,"ratios":[1.0],"cards":[best_card.name]})
                 total_rewards[cat]["cards"].append(best_card.name)
@@ -142,10 +183,14 @@ def analyze_credit_cards(all_cards,monthly_spending):
                 money_spent[cat]+=best_used
                 total_time[cat]=1.0
 
-    print("_________________________")            
+    print("RAW DATA PER CATEGORY"+'-'*50)            
     for key,val in total_rewards.items():
         print(key,val)
-        
+    print("FORMATTED TABLE"+'-'*50)            
+    
+    #remove duplicate cards    
+    for cat in total_rewards:
+        total_rewards[cat]["cards"]=list(set(total_rewards[cat]["cards"]))
 
         
     print(f"{'Category':<20}{'Monthly Spend':>20}{'Cash Back $':>15}{'Cash Back %':>15}{' ' * 4}{'cards':<50}")
