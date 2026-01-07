@@ -27,6 +27,7 @@ class CreditCard:
 
     def reset(self):
         self.use={}
+        self.time = 0
         self.custom_i=0
     
     #probably should return the reward amount, actual used amount in case of cap, and % chance of occurance so the main script can do the appropriate probability calculations

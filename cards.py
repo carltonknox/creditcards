@@ -130,3 +130,29 @@ amex_gold = CreditCard(
     base_rate=0.01,               # 1% elsewhere
     fee=(325 - (120+120))/12            
 )
+fidelity_visa = CreditCard(
+    name="Fidelity Rewards Visa",
+    base_rate=0.02
+)
+discover_current = CreditCard(
+    name="Discover IT",
+    flat_rates={
+        "groceries": 0.05
+    },
+    monthly_caps={
+        "groceries": 500
+    },
+    base_rate=0.01
+)
+chase_current = CreditCard(
+    name="Chase Freedom Flex",
+    flat_rates={
+        "dining": 0.05,
+        "drugstore": 0.03,
+        "travelportal": 0.05
+        },
+    monthly_caps={
+        "dining": 500
+    },
+    base_rate=0.01
+)

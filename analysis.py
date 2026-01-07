@@ -14,6 +14,8 @@ def best_flat_card(card_list,amount,category):
     assert(best_card is not None)
     return best_card, best_reward, best_used
 def analyze_credit_cards(all_cards,monthly_spending):
+    for card in all_cards:
+        card.reset()
     money_spent= {cat:0 for cat in monthly_spending.keys()}
     total_time = {cat:0 for cat in monthly_spending.keys()}
     total_rewards={cat:{"cards":[],"portions":[]} for cat in monthly_spending.keys()}
@@ -236,4 +238,6 @@ def analyze_credit_cards(all_cards,monthly_spending):
     print(f"{'CARD':<30}{'contributed':>20}{'monthly fees':>20}")
     for card, reward in card_contribution.items():
         print(f"{card:<30}{f'${reward:,.2f}':>20}{f'{card_fees[card]:,.2f}':>20}")
+    
+    return {"total_rewards":total_rewards,"card_contribution":card_contribution,"annual_fees":card_fees}
         
